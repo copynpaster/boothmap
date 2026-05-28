@@ -292,51 +292,49 @@ function renderSVGMap() {
     
     g.appendChild(rect);
 
-    // Text Label (Skip for "무대")
-    if (booth.id !== '무대') {
-      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      text.setAttribute('class', `booth-label ${isUnassigned ? 'unassigned' : ''} ${isFacility ? 'facility' : ''}`);
-      
-      const idSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-      idSpan.setAttribute('x', booth.x + booth.width / 2);
-      idSpan.textContent = isFacility ? booth.name : booth.id;
-      text.appendChild(idSpan);
+    // Text Label
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('class', `booth-label ${isUnassigned ? 'unassigned' : ''} ${isFacility ? 'facility' : ''}`);
+    
+    const idSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    idSpan.setAttribute('x', booth.x + booth.width / 2);
+    idSpan.textContent = isFacility ? booth.name : booth.id;
+    text.appendChild(idSpan);
 
-      if (isFacility) {
-        text.setAttribute('y', booth.y + booth.height / 2);
-      } else if (!isUnassigned) {
-        idSpan.setAttribute('dy', '-2');
-        
-        const nameSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-        nameSpan.setAttribute('x', booth.x + booth.width / 2);
-        nameSpan.setAttribute('dy', '10');
-        nameSpan.setAttribute('class', 'booth-label-name');
-        
-        // Clean and truncate name (removing slash details and parenthesized sub-names)
-        const maxLen = booth.width >= 50 ? 8 : (booth.width >= 40 ? 6 : 4);
-        let displayName = booth.name.split('/')[0].trim();
-        if (displayName.includes('(')) {
-          const parts = displayName.split('(');
-          if (parts[0].trim().length > 0) {
-            displayName = parts[0].trim();
-          } else {
-            // Remove leading parenthesized blocks like (주), (사)
-            displayName = displayName.replace(/^\([^)]+\)/, '').trim();
-          }
-        }
-        if (displayName.length > maxLen) {
-          displayName = displayName.substring(0, maxLen);
-        }
-        nameSpan.textContent = displayName;
-        text.appendChild(nameSpan);
-        
-        text.setAttribute('y', booth.y + booth.height / 2 - 3);
-      } else {
-        text.setAttribute('y', booth.y + booth.height / 2);
-      }
+    if (isFacility) {
+      text.setAttribute('y', booth.y + booth.height / 2);
+    } else if (!isUnassigned && booth.id !== '무대') {
+      idSpan.setAttribute('dy', '-2');
       
-      g.appendChild(text);
+      const nameSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      nameSpan.setAttribute('x', booth.x + booth.width / 2);
+      nameSpan.setAttribute('dy', '10');
+      nameSpan.setAttribute('class', 'booth-label-name');
+      
+      // Clean and truncate name (removing slash details and parenthesized sub-names)
+      const maxLen = booth.width >= 50 ? 8 : (booth.width >= 40 ? 6 : 4);
+      let displayName = booth.name.split('/')[0].trim();
+      if (displayName.includes('(')) {
+        const parts = displayName.split('(');
+        if (parts[0].trim().length > 0) {
+          displayName = parts[0].trim();
+        } else {
+          // Remove leading parenthesized blocks like (주), (사)
+          displayName = displayName.replace(/^\([^)]+\)/, '').trim();
+        }
+      }
+      if (displayName.length > maxLen) {
+        displayName = displayName.substring(0, maxLen);
+      }
+      nameSpan.textContent = displayName;
+      text.appendChild(nameSpan);
+      
+      text.setAttribute('y', booth.y + booth.height / 2 - 3);
+    } else {
+      text.setAttribute('y', booth.y + booth.height / 2);
     }
+    
+    g.appendChild(text);
     
     svg.appendChild(g);
   });
