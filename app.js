@@ -30,13 +30,18 @@ const toast = document.getElementById('toast');
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
   loadPlannerData();
+  const imported = checkAndImportSharedData();
   initTheme();
   // Set default view for mobile
   document.body.classList.add('show-map-view');
   renderSVGMap();
   renderExhibitorsList();
   setupEventListeners();
-  showToast('코엑스 부스 배치도가 로드되었습니다.');
+  if (imported) {
+    showToast('기기 데이터 연동 완료! (즐겨찾기, 방문 상태 및 메모가 병합되었습니다.)');
+  } else {
+    showToast('코엑스 부스 배치도가 로드되었습니다.');
+  }
   setTimeout(fitMapToViewport, 100);
 });
 
@@ -238,7 +243,8 @@ function renderSVGMap() {
     rect.setAttribute('height', booth.height);
     
     const isUnassigned = booth.name === '미배정 부스';
-    rect.setAttribute('class', `booth-rect ${isUnassigned ? 'unassigned' : ''} ${isFacility ? 'facility' : ''} ${selectedId === booth.id ? 'active' : ''} ${isStarred ? 'starred' : ''} ${isVisited ? 'visited' : ''}`);
+    const isFacilityClass = isFacility || booth.id === '무대';
+    rect.setAttribute('class', `booth-rect ${isUnassigned ? 'unassigned' : ''} ${isFacilityClass ? 'facility' : ''} ${selectedId === booth.id ? 'active' : ''} ${isStarred ? 'starred' : ''} ${isVisited ? 'visited' : ''}`);
     
     // Set Section for color mapping
     const isSpecialZone = booth.id === '무대' || booth.id === '휴게' || booth.id === '체험' || isFacility;
@@ -251,7 +257,7 @@ function renderSVGMap() {
     rect.appendChild(title);
     
     // Text Label Background for special stages/cafes (to make it readable)
-    if (isSpecialZone && !isFacility) {
+    if (isSpecialZone && !isFacility && booth.id !== '무대') {
       const textBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       textBg.setAttribute('x', booth.x + 4);
       textBg.setAttribute('y', booth.y + booth.height/2 - 10);
@@ -261,54 +267,8 @@ function renderSVGMap() {
       g.appendChild(textBg);
     }
     
-    // Text Label
-    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('class', `booth-label ${isUnassigned ? 'unassigned' : ''} ${isFacility ? 'facility' : ''}`);
-    
-    const idSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-    idSpan.setAttribute('x', booth.x + booth.width / 2);
-    idSpan.textContent = isFacility ? booth.name : booth.id;
-    text.appendChild(idSpan);
-
-    if (isFacility) {
-      text.setAttribute('y', booth.y + booth.height / 2);
-    } else if (!isUnassigned && booth.id !== '무대') {
-      idSpan.setAttribute('dy', '-2');
-      
-      const nameSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-      nameSpan.setAttribute('x', booth.x + booth.width / 2);
-      nameSpan.setAttribute('dy', '10');
-      nameSpan.setAttribute('class', 'booth-label-name');
-      
-      // Clean and truncate name (removing slash details and parenthesized sub-names)
-      const maxLen = booth.width >= 50 ? 8 : (booth.width >= 40 ? 6 : 4);
-      let displayName = booth.name.split('/')[0].split('(')[0].trim();
-      if (displayName.length > maxLen) {
-        displayName = displayName.substring(0, maxLen);
-      }
-      nameSpan.textContent = displayName;
-      text.appendChild(nameSpan);
-      
-      text.setAttribute('y', booth.y + booth.height / 2 - 3);
-    } else {
-      text.setAttribute('y', booth.y + booth.height / 2);
-      
-      if (booth.id === '무대') {
-        idSpan.setAttribute('dy', '-6');
-        
-        const nameSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-        nameSpan.setAttribute('x', booth.x + booth.width / 2);
-        nameSpan.setAttribute('dy', '14');
-        nameSpan.setAttribute('class', 'booth-label-name special');
-        nameSpan.textContent = "메인 무대";
-        text.appendChild(nameSpan);
-        
-        text.setAttribute('y', booth.y + booth.height / 2 - 4);
-      }
-    }
-    
     // Add event listeners on rect click/double-click/double-tap
-    if (!isFacility) {
+    if (!isFacility && booth.id !== '무대') {
       let lastClickTime = 0;
       rect.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -331,7 +291,53 @@ function renderSVGMap() {
     }
     
     g.appendChild(rect);
-    g.appendChild(text);
+
+    // Text Label (Skip for "무대")
+    if (booth.id !== '무대') {
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('class', `booth-label ${isUnassigned ? 'unassigned' : ''} ${isFacility ? 'facility' : ''}`);
+      
+      const idSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      idSpan.setAttribute('x', booth.x + booth.width / 2);
+      idSpan.textContent = isFacility ? booth.name : booth.id;
+      text.appendChild(idSpan);
+
+      if (isFacility) {
+        text.setAttribute('y', booth.y + booth.height / 2);
+      } else if (!isUnassigned) {
+        idSpan.setAttribute('dy', '-2');
+        
+        const nameSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+        nameSpan.setAttribute('x', booth.x + booth.width / 2);
+        nameSpan.setAttribute('dy', '10');
+        nameSpan.setAttribute('class', 'booth-label-name');
+        
+        // Clean and truncate name (removing slash details and parenthesized sub-names)
+        const maxLen = booth.width >= 50 ? 8 : (booth.width >= 40 ? 6 : 4);
+        let displayName = booth.name.split('/')[0].trim();
+        if (displayName.includes('(')) {
+          const parts = displayName.split('(');
+          if (parts[0].trim().length > 0) {
+            displayName = parts[0].trim();
+          } else {
+            // Remove leading parenthesized blocks like (주), (사)
+            displayName = displayName.replace(/^\([^)]+\)/, '').trim();
+          }
+        }
+        if (displayName.length > maxLen) {
+          displayName = displayName.substring(0, maxLen);
+        }
+        nameSpan.textContent = displayName;
+        text.appendChild(nameSpan);
+        
+        text.setAttribute('y', booth.y + booth.height / 2 - 3);
+      } else {
+        text.setAttribute('y', booth.y + booth.height / 2);
+      }
+      
+      g.appendChild(text);
+    }
+    
     svg.appendChild(g);
   });
   
@@ -490,7 +496,7 @@ function renderExhibitorsList() {
   const filtered = exhibitors.filter(b => {
     // Exclude facility IDs from list entirely
     const isFacility = b.id.startsWith("입구") || b.id.startsWith("출구") || b.id === "등록대";
-    if (isFacility) return false;
+    if (isFacility || b.id === '무대') return false;
 
     // Exclude unassigned empty booths from the list by default
     // to avoid cluttering, but keep them if they are searched, starred, visited, or have notes
@@ -892,6 +898,12 @@ function setupEventListeners() {
   if (mobileImportBtn) mobileImportBtn.addEventListener('click', triggerImport);
   
   if (importFile) importFile.addEventListener('change', importData);
+
+  // Link Sync (Desktop & Mobile)
+  const linkSyncBtn = document.getElementById('link-sync-btn');
+  if (linkSyncBtn) linkSyncBtn.addEventListener('click', copySyncLink);
+  const mobileLinkSyncBtn = document.getElementById('mobile-link-sync-btn');
+  if (mobileLinkSyncBtn) mobileLinkSyncBtn.addEventListener('click', copySyncLink);
 }
 
 // Update single booth styling on SVG map
@@ -1009,4 +1021,106 @@ function escapeHTML(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+// Copy Sync Link to Clipboard
+function copySyncLink() {
+  const minData = {
+    f: Array.from(plannerData.favorites),
+    v: Array.from(plannerData.visited),
+    m: plannerData.memos
+  };
+  
+  try {
+    const jsonStr = JSON.stringify(minData);
+    const utf8Str = encodeURIComponent(jsonStr);
+    const base64Data = btoa(utf8Str);
+    
+    const shareUrl = window.location.origin + window.location.pathname + '?data=' + base64Data;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareUrl)
+        .then(() => {
+          showToast('연동 링크가 클립보드에 복사되었습니다! 다른 기기나 브라우저에서 열어보세요.');
+        })
+        .catch(err => {
+          console.error('클립보드 복사 실패:', err);
+          fallbackCopyText(shareUrl);
+        });
+    } else {
+      fallbackCopyText(shareUrl);
+    }
+  } catch (e) {
+    console.error('연동 링크 생성 오류:', e);
+    showToast('연동 링크 생성에 실패했습니다.');
+  }
+}
+
+// Fallback copy using textarea
+function fallbackCopyText(text) {
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.style.position = 'fixed';
+  textArea.style.opacity = '0';
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  
+  try {
+    const successful = document.execCommand('copy');
+    if (successful) {
+      showToast('연동 링크가 복사되었습니다!');
+    } else {
+      showToast('링크 복사에 실패했습니다. 직접 복사해 주세요.');
+      prompt('연동 링크 복사:', text);
+    }
+  } catch (err) {
+    console.error('Fallback 복사 실패:', err);
+    showToast('링크 복사에 실패했습니다.');
+  }
+  
+  document.body.removeChild(textArea);
+}
+
+// Check URL and Import Shared Data
+function checkAndImportSharedData() {
+  const params = new URLSearchParams(window.location.search);
+  const base64Data = params.get('data');
+  if (!base64Data) return false;
+  
+  try {
+    const utf8Str = atob(base64Data);
+    const jsonStr = decodeURIComponent(utf8Str);
+    const parsed = JSON.parse(jsonStr);
+    
+    // Merge favorites
+    if (parsed.f && Array.isArray(parsed.f)) {
+      parsed.f.forEach(id => plannerData.favorites.add(id));
+    }
+    
+    // Merge visited
+    if (parsed.v && Array.isArray(parsed.v)) {
+      parsed.v.forEach(id => plannerData.visited.add(id));
+    }
+    
+    // Merge memos
+    if (parsed.m && typeof parsed.m === 'object') {
+      Object.entries(parsed.m).forEach(([id, text]) => {
+        if (text && text.trim() !== '') {
+          plannerData.memos[id] = text;
+        }
+      });
+    }
+    
+    savePlannerData();
+    
+    // Clean query parameter without page reload
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return true;
+  } catch (e) {
+    console.error('연동 데이터를 가져오는 중 오류 발생:', e);
+    window.history.replaceState({}, document.title, window.location.pathname);
+    showToast('연동 데이터 형식이 맞지 않거나 손상되었습니다.');
+    return false;
+  }
 }
