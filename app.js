@@ -28,9 +28,9 @@ const dialogText = document.getElementById('memo-text');
 const toast = document.getElementById('toast');
 
 // Initialize App
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   loadPlannerData();
-  const imported = checkAndImportSharedData();
+  const imported = await checkAndImportSharedData();
   initTheme();
   // Set default view for mobile
   document.body.classList.add('show-map-view');
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderExhibitorsList();
   setupEventListeners();
   if (imported) {
-    showToast('기기 데이터 연동 완료! (즐겨찾기, 방문 상태 및 메모가 병합되었습니다.)');
+    showToast('기기 데이터 연동 완료! (즐겨찾기, 방문 상태가 병합되었습니다.)');
   } else {
     showToast('코엑스 부스 배치도가 로드되었습니다.');
   }
@@ -1021,19 +1021,58 @@ function escapeHTML(str) {
     .replace(/'/g, '&#039;');
 }
 
+// Compress data using CompressionStream (deflate) and return base64
+async function compressAndEncode(dataObj) {
+  const jsonStr = JSON.stringify(dataObj);
+  if (typeof CompressionStream !== 'undefined') {
+    const stream = new Blob([jsonStr]).stream();
+    const compressedStream = stream.pipeThrough(new CompressionStream('deflate'));
+    const response = new Response(compressedStream);
+    const buffer = await response.arrayBuffer();
+    const binary = String.fromCharCode(...new Uint8Array(buffer));
+    return 'c:' + btoa(binary);
+  } else {
+    const utf8Str = encodeURIComponent(jsonStr);
+    return 'u:' + btoa(utf8Str);
+  }
+}
+
+// Decode and decompress base64
+async function decodeAndDecompress(base64Str) {
+  if (base64Str.startsWith('c:')) {
+    const cleanStr = base64Str.substring(2);
+    const binaryStr = atob(cleanStr);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    const stream = new Blob([bytes]).stream();
+    const decompressedStream = stream.pipeThrough(new DecompressionStream('deflate'));
+    const response = new Response(decompressedStream);
+    const jsonStr = await response.text();
+    return JSON.parse(jsonStr);
+  } else if (base64Str.startsWith('u:')) {
+    const cleanStr = base64Str.substring(2);
+    const utf8Str = atob(cleanStr);
+    const jsonStr = decodeURIComponent(utf8Str);
+    return JSON.parse(jsonStr);
+  } else {
+    // Legacy support (uncompressed plain base64)
+    const utf8Str = atob(base64Str);
+    const jsonStr = decodeURIComponent(utf8Str);
+    return JSON.parse(jsonStr);
+  }
+}
+
 // Copy Sync Link to Clipboard
-function copySyncLink() {
+async function copySyncLink() {
   const minData = {
     f: Array.from(plannerData.favorites),
-    v: Array.from(plannerData.visited),
-    m: plannerData.memos
+    v: Array.from(plannerData.visited)
   };
   
   try {
-    const jsonStr = JSON.stringify(minData);
-    const utf8Str = encodeURIComponent(jsonStr);
-    const base64Data = btoa(utf8Str);
-    
+    const base64Data = await compressAndEncode(minData);
     const shareUrl = window.location.origin + window.location.pathname + '?data=' + base64Data;
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1081,15 +1120,13 @@ function fallbackCopyText(text) {
 }
 
 // Check URL and Import Shared Data
-function checkAndImportSharedData() {
+async function checkAndImportSharedData() {
   const params = new URLSearchParams(window.location.search);
   const base64Data = params.get('data');
   if (!base64Data) return false;
   
   try {
-    const utf8Str = atob(base64Data);
-    const jsonStr = decodeURIComponent(utf8Str);
-    const parsed = JSON.parse(jsonStr);
+    const parsed = await decodeAndDecompress(base64Data);
     
     // Merge favorites
     if (parsed.f && Array.isArray(parsed.f)) {
@@ -1101,7 +1138,7 @@ function checkAndImportSharedData() {
       parsed.v.forEach(id => plannerData.visited.add(id));
     }
     
-    // Merge memos
+    // Merge memos (in case legacy link contains memos)
     if (parsed.m && typeof parsed.m === 'object') {
       Object.entries(parsed.m).forEach(([id, text]) => {
         if (text && text.trim() !== '') {
