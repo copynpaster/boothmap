@@ -13,6 +13,11 @@ let panY = 0;
 let isDragging = false;
 let startX = 0;
 let startY = 0;
+let isPinching = false;
+let initialPinchDistance = 0;
+let initialZoom = 1.0;
+let initialPanX = 0;
+let initialPanY = 0;
 
 let currentTab = 'all';
 let currentFilter = 'all';
@@ -920,24 +925,77 @@ function setupEventListeners() {
     isDragging = false;
   });
   
-  // Also support touch for mobile
+  // Also support touch for mobile (drag & pinch-to-zoom)
   mapViewport.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
       isDragging = true;
+      isPinching = false;
       startX = e.touches[0].clientX - panX;
       startY = e.touches[0].clientY - panY;
+    } else if (e.touches.length === 2) {
+      isDragging = false;
+      isPinching = true;
+      initialPinchDistance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      initialZoom = zoom;
+      initialPanX = panX;
+      initialPanY = panY;
     }
   });
   
   window.addEventListener('touchmove', (e) => {
-    if (!isDragging || e.touches.length !== 1) return;
-    panX = e.touches[0].clientX - startX;
-    panY = e.touches[0].clientY - startY;
-    applyZoomPan();
-  });
+    if (isPinching && e.touches.length === 2) {
+      e.preventDefault(); // Prevent native browser zooming/scrolling
+      
+      const currentDistance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      
+      if (initialPinchDistance > 0) {
+        const factor = currentDistance / initialPinchDistance;
+        const newZoom = Math.min(3.0, Math.max(0.1, initialZoom * factor));
+        
+        // Midpoint of two touch points
+        const pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        
+        // Viewport dimensions and coordinates relative to viewport
+        const rect = mapViewport.getBoundingClientRect();
+        const viewX = pinchCenterX - rect.left;
+        const viewY = pinchCenterY - rect.top;
+        const viewportWidth = rect.width;
+        const viewportHeight = rect.height;
+        
+        // Calculate new pan positions so the midpoint remains in the same relative position
+        const newPanX = viewX - viewportWidth / 2 - (viewX - viewportWidth / 2 - initialPanX) * (newZoom / initialZoom);
+        const newPanY = viewY - viewportHeight / 2 - (viewY - viewportHeight / 2 - initialPanY) * (newZoom / initialZoom);
+        
+        zoom = newZoom;
+        panX = newPanX;
+        panY = newPanY;
+        applyZoomPan();
+      }
+    } else if (isDragging && e.touches.length === 1) {
+      panX = e.touches[0].clientX - startX;
+      panY = e.touches[0].clientY - startY;
+      applyZoomPan();
+    }
+  }, { passive: false });
   
-  window.addEventListener('touchend', () => {
-    isDragging = false;
+  window.addEventListener('touchend', (e) => {
+    if (e.touches.length === 0) {
+      isDragging = false;
+      isPinching = false;
+    } else if (e.touches.length === 1) {
+      // Transition from pinch back to drag smoothly using remaining touch
+      isPinching = false;
+      isDragging = true;
+      startX = e.touches[0].clientX - panX;
+      startY = e.touches[0].clientY - panY;
+    }
   });
 
   // Export Data JSON (Desktop & Mobile)
