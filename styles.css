@@ -269,7 +269,8 @@ svg.exhibition-map {
   box-shadow: var(--shadow-main);
   border-radius: var(--radius-md);
   transform-origin: center center;
-  transition: transform 0.1s ease-out;
+  transition: none; /* Instant tracking for drag/pinch responsiveness */
+  will-change: transform; /* Hardware GPU acceleration */
 }
 
 /* Map Grid Pattern */

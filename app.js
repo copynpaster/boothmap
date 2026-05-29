@@ -693,7 +693,7 @@ function centerOnBooth(booth) {
     svg.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
     svg.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
     setTimeout(() => {
-      svg.style.transition = 'transform 0.1s ease-out'; // revert transition to fast drag feel
+      svg.style.transition = 'none'; // revert transition to instant drag feel
     }, 300);
   }
 }
