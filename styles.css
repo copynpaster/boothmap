@@ -1208,6 +1208,7 @@ dialog::backdrop {
 
   .detail-card-container.active {
     transform: translateX(-50%) translateY(0);
+    animation: none !important; /* Disable desktop slide-down animation to prevent horizontal offset glitch */
   }
 
   /* Mobile bottom sheet drag handle look */
