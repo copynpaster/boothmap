@@ -1184,6 +1184,11 @@ dialog::backdrop {
   .exhibitors-list {
     padding: 0 0.75rem;
     margin-bottom: 5.5rem; /* leave space for floating nav bar */
+    transition: padding-bottom 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  body:has(#detail-panel.active) .exhibitors-list {
+    padding-bottom: 18rem; /* leave extra space for the floating bottom sheet */
   }
 
   .exhibitor-card {

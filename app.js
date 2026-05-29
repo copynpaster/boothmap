@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadPlannerData();
   const imported = await checkAndImportSharedData();
   initTheme();
+  adjustDetailPanelPlacement();
   // Set default view for mobile
   document.body.classList.add('show-map-view');
   renderSVGMap();
@@ -276,7 +277,7 @@ function renderSVGMap() {
         const isDoubleClick = (currentTime - lastClickTime < 300);
         lastClickTime = currentTime;
         
-        selectBooth(booth.id);
+        selectBooth(booth.id, isDoubleClick);
         if (isDoubleClick) {
           showBoothInList(booth.id);
         }
@@ -285,7 +286,7 @@ function renderSVGMap() {
       // Also register dblclick for desktop mouse double-click
       rect.addEventListener('dblclick', (e) => {
         e.stopPropagation();
-        selectBooth(booth.id);
+        selectBooth(booth.id, true);
         showBoothInList(booth.id);
       });
     }
@@ -343,7 +344,24 @@ function renderSVGMap() {
 }
 
 // Select a booth, update details panel, sync map class
-function selectBooth(id) {
+function selectBooth(id, forceSelect = false) {
+  // If selecting the already selected booth, or deselecting (null/empty)
+  if (!forceSelect && (selectedId === id || !id)) {
+    selectedId = null;
+    
+    // Clear active classes from SVG map
+    const rects = document.querySelectorAll('.booth-rect');
+    rects.forEach(r => r.classList.remove('active'));
+    
+    // Clear active classes from list
+    const cards = document.querySelectorAll('.exhibitor-card');
+    cards.forEach(c => c.classList.remove('active'));
+    
+    // Hide details drawer
+    detailPanel.classList.remove('active');
+    return;
+  }
+
   selectedId = id;
   
   // Highlight rect in SVG
@@ -372,7 +390,7 @@ function selectBooth(id) {
 }
 
 // Show selected booth in the list view, scroll it into view and highlight it
-function showBoothInList(id) {
+function showBoothInList(id, triggerTabSwitch = true) {
   // 1. Reset filters/search to ensure the booth is visible in the list
   searchQuery = '';
   if (searchInput) {
@@ -394,7 +412,10 @@ function showBoothInList(id) {
   renderExhibitorsList();
   
   // 3. Switch tab to list on mobile
-  switchTab('list');
+  if (triggerTabSwitch) {
+    switchTab('list');
+    return;
+  }
   
   // 4. Find the card and scroll it into view, flash highlight it
   setTimeout(() => {
@@ -606,7 +627,7 @@ function renderExhibitorsList() {
       const isDoubleClick = (currentTime - lastClickTime < 300);
       lastClickTime = currentTime;
       
-      selectBooth(booth.id);
+      selectBooth(booth.id, isDoubleClick);
       
       if (window.innerWidth <= 768) {
         if (isDoubleClick) {
@@ -624,7 +645,7 @@ function renderExhibitorsList() {
     
     // Desktop dblclick fallback
     card.addEventListener('dblclick', () => {
-      selectBooth(booth.id);
+      selectBooth(booth.id, true);
       if (window.innerWidth <= 768) {
         switchTab('map');
         void mapViewport.offsetWidth; // Force synchronous reflow
@@ -680,6 +701,30 @@ function centerOnBooth(booth) {
   }
 }
 
+// Adjust detail panel DOM placement depending on screen size
+function adjustDetailPanelPlacement() {
+  const isMobile = window.innerWidth <= 768;
+  const currentParent = detailPanel.parentElement;
+  
+  if (isMobile) {
+    const appContainer = document.querySelector('.app-container');
+    if (appContainer && currentParent !== appContainer) {
+      appContainer.appendChild(detailPanel);
+    }
+  } else {
+    const sidebarPanel = document.querySelector('.sidebar-panel');
+    const exhibitorsList = document.getElementById('exhibitors-list');
+    if (sidebarPanel && currentParent !== sidebarPanel) {
+      // Insert detailPanel before exhibitorsList to preserve original desktop order
+      if (exhibitorsList) {
+        sidebarPanel.insertBefore(detailPanel, exhibitorsList);
+      } else {
+        sidebarPanel.appendChild(detailPanel);
+      }
+    }
+  }
+}
+
 // Responsive layout tab switcher for mobile viewports
 // Responsive layout tab switcher for mobile viewports
 function switchTab(tab) {
@@ -697,11 +742,26 @@ function switchTab(tab) {
     if (navMapBtn) navMapBtn.classList.add('active');
     // Force reflow and auto-fit map after a short delay
     void mapViewport.offsetWidth;
-    setTimeout(fitMapToViewport, 50);
+    
+    if (selectedId) {
+      const selectedBooth = exhibitors.find(b => b.id === selectedId);
+      if (selectedBooth) {
+        setTimeout(() => {
+          centerOnBooth(selectedBooth);
+        }, 100);
+      } else {
+        setTimeout(fitMapToViewport, 50);
+      }
+    } else {
+      setTimeout(fitMapToViewport, 50);
+    }
   } else if (tab === 'list') {
     document.body.classList.add('show-list-view');
     if (navListBtn) navListBtn.classList.add('active');
-    // Keep details panel open when switching to the list view
+    
+    if (selectedId) {
+      showBoothInList(selectedId, false);
+    }
   } else if (tab === 'settings') {
     document.body.classList.add('show-settings-view');
     if (navSettingsBtn) navSettingsBtn.classList.add('active');
@@ -724,7 +784,7 @@ function setupEventListeners() {
   if (closeDetailBtn) {
     closeDetailBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      detailPanel.classList.remove('active');
+      selectBooth(null);
     });
   }
 
@@ -832,8 +892,11 @@ function setupEventListeners() {
     showToast('지도 배율이 자동 맞춤으로 초기화되었습니다.');
   });
   
-  // Window Resize Listener for dynamic auto-fit
-  window.addEventListener('resize', fitMapToViewport);
+  // Window Resize Listener for dynamic auto-fit and detail panel placement
+  window.addEventListener('resize', () => {
+    fitMapToViewport();
+    adjustDetailPanelPlacement();
+  });
   
   // SVG Panning (Drag and move)
   mapViewport.addEventListener('mousedown', (e) => {

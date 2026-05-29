@@ -215,7 +215,12 @@
   <!-- Memo Dialog Dialog -->
   <dialog id="memo-dialog">
     <div class="dialog-header" id="memo-dialog-title">방문 메모 작성</div>
-    <div class="dialog-desc">이 부스에서 시음해볼 차나 구매 예정 목록을 작성하세요. 브라우저 로컬 저장소에 안전하게 임시 저장됩니다.</div>
+    <div class="dialog-desc">
+      이 부스에서 시음해볼 차나 구매 예정 목록을 작성하세요. 브라우저 로컬 저장소에 안전하게 임시 저장됩니다.
+      <span style="display: block; margin-top: 0.35rem; color: var(--color-sec-special); opacity: 0.95; font-size: 0.75rem; font-weight: 500;">
+        ⚠️ 기기 간 '연동 링크' 공유 시 메모 데이터는 포함되지 않으며, 현재 기기에만 개별 저장됩니다.
+      </span>
+    </div>
     <div class="form-group">
       <label class="form-label" for="memo-text">메모 내용</label>
       <textarea class="form-textarea" id="memo-text" placeholder="예: 시음 필수, 우전 등급 녹차 50g 구매(예산 3만원), 대기줄 길 수 있으니 개장 즉시 방문하기"></textarea>
