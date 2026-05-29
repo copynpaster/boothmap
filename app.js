@@ -933,6 +933,7 @@ function setupEventListeners() {
       startX = e.touches[0].clientX - panX;
       startY = e.touches[0].clientY - panY;
     } else if (e.touches.length === 2) {
+      e.preventDefault(); // Prevent browser zoom behavior at start of pinch touch
       isDragging = false;
       isPinching = true;
       initialPinchDistance = Math.hypot(
@@ -943,7 +944,7 @@ function setupEventListeners() {
       initialPanX = panX;
       initialPanY = panY;
     }
-  });
+  }, { passive: false });
   
   window.addEventListener('touchmove', (e) => {
     if (isPinching && e.touches.length === 2) {
@@ -997,6 +998,14 @@ function setupEventListeners() {
       startY = e.touches[0].clientY - panY;
     }
   });
+
+  // Prevent proprietary iOS Safari native gesture zoom behaviors
+  mapViewport.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+  }, { passive: false });
+  mapViewport.addEventListener('gesturechange', (e) => {
+    e.preventDefault();
+  }, { passive: false });
 
   // Export Data JSON (Desktop & Mobile)
   const exportBtn = document.getElementById('export-btn');
