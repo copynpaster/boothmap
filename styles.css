@@ -1035,6 +1035,13 @@ dialog::backdrop {
 
 /* Mobile Viewport (< 768px) */
 @media (max-width: 768px) {
+  html, body {
+    overflow: hidden !important;
+    height: 100dvh !important;
+    position: fixed;
+    width: 100%;
+  }
+
   /* Header adjustments */
   header {
     padding: 0.75rem 1.25rem;
@@ -1053,8 +1060,9 @@ dialog::backdrop {
   /* Split layout behaves as full-screen tabs on mobile */
   .app-container {
     display: block;
-    height: calc(100vh - 50px - 4rem); /* dynamic fit minus footer */
+    height: calc(100dvh - 50px); /* dynamic fit using dvh minus header */
     position: relative;
+    overflow: hidden;
   }
   
   /* Conditionally show panels based on body state */
@@ -1148,7 +1156,9 @@ dialog::backdrop {
     padding: 0; /* Let inner elements control padding for better fit */
     border-top: none;
     height: 100%;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Lock entire panel, let inner exhibitors-list scroll */
     backdrop-filter: none !important; /* Disable to prevent stacking context trap */
     background-color: var(--bg-main) !important; /* Ensure solid background without backdrop filter */
   }
