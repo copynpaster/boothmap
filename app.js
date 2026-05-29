@@ -310,11 +310,11 @@ function renderSVGMap() {
     if (isFacility) {
       text.setAttribute('y', booth.y + booth.height / 2);
     } else if (!isUnassigned && booth.id !== '무대') {
-      idSpan.setAttribute('dy', '-2');
+      idSpan.setAttribute('dy', '0');
       
       const nameSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
       nameSpan.setAttribute('x', booth.x + booth.width / 2);
-      nameSpan.setAttribute('dy', '10');
+      nameSpan.setAttribute('dy', '8.5'); // Tighter line-height to prevent overlapping
       nameSpan.setAttribute('class', 'booth-label-name');
       
       // Clean and truncate name (removing slash details and parenthesized sub-names)
@@ -335,7 +335,7 @@ function renderSVGMap() {
       nameSpan.textContent = displayName;
       text.appendChild(nameSpan);
       
-      text.setAttribute('y', booth.y + booth.height / 2 - 3);
+      text.setAttribute('y', booth.y + booth.height / 2 - 2); // Shift down slightly to prevent overlapping top border
     } else {
       text.setAttribute('y', booth.y + booth.height / 2);
     }
@@ -471,11 +471,6 @@ function renderDetailPanel(booth) {
   badge.style.backgroundColor = sectionColors[isSpecial ? 'SPECIAL' : booth.section];
   
   document.getElementById('detail-title').textContent = booth.name;
-  
-  const gridCoords = document.getElementById('detail-grid-coords');
-  if (gridCoords) {
-    gridCoords.textContent = `그리드 좌표: (${booth.gridX}, ${booth.gridY}) | 크기: ${booth.gridW}x${booth.gridH}`;
-  }
   
   // Render buttons states
   const starBtn = document.getElementById('detail-star-btn');
@@ -619,9 +614,6 @@ function renderExhibitorsList() {
       <div class="exhibitor-card-top">
         <span class="booth-badge" style="background-color: ${badgeColor};">${booth.id}</span>
         <div class="exhibitor-card-title">${booth.name}</div>
-      </div>
-      <div style="font-size: 0.65rem; color: var(--text-muted); opacity: 0.8; margin-top: 0.15rem;">
-        그리드: (${booth.gridX}, ${booth.gridY}) | 크기: ${booth.gridW}x${booth.gridH}
       </div>
       ${memoPreviewHtml}
     `;
